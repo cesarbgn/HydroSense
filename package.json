@@ -1,0 +1,19 @@
+{
+  "name": "hydrosense",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.3",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "db:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
+    "db:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
+    "db:test": "docker compose --env-file .env -f infra/docker-compose.yml exec -T mariadb sh /sql/correr_pruebas.sh",
+    "seed": "pnpm --filter backend seed",
+    "simulador": "pnpm --filter backend simulador",
+    "test": "pnpm --filter backend test"
+  }
+}

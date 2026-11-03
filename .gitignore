@@ -1,0 +1,20 @@
+# Dependencias y builds
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Secretos y configuración local
+.env
+.env.*
+!.env.example
+
+# Volúmenes de Docker (si se cambian a carpetas locales)
+infra/data/
+infra/mosquitto/data/
+infra/mosquitto/log/
+
+# Registros y sistema
+*.log
+.DS_Store
+Thumbs.db

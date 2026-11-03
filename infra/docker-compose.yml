@@ -1,0 +1,56 @@
+name: hydrosense
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Falta DB_ROOT_PASSWORD en .env}
+      MARIADB_DATABASE: ${DB_NAME:-hydrosense}
+      MARIADB_USER: ${DB_USER:?Falta DB_USER en .env}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
+    command:
+      - --default-time-zone=-06:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --sql-mode=STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION
+    ports:
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      # Solo el esquema se monta como inicialización: si se montara la carpeta
+      # entera, el contenedor ejecutaría también pruebas.sql en la BD real.
+      - ../database/hydrosense.sql:/docker-entrypoint-initdb.d/01_hydrosense.sql:ro
+      - ../database:/sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/broker/uptime' -C 1 -W 3 > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # SMTP de prueba, solo con: docker compose --profile correo up -d
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles: ["correo"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+volumes:
+  mariadb_data:
+  mosquitto_data:
