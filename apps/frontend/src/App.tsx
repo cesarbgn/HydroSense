@@ -27,7 +27,7 @@ import {
 } from "./api"
 import { DatosProvider, useDatos } from "./datos"
 
-type IconName = "overview" | "devices" | "alerts" | "thresholds" | "users" | "settings" | "bell" | "menu" | "close" | "chevron" | "activity" | "temperature" | "flow" | "valve" | "siren" | "tower" | "search" | "plus" | "download" | "more" | "check" | "wifi" | "mail" | "shield"
+type IconName = "overview" | "devices" | "alerts" | "thresholds" | "users" | "settings" | "bell" | "menu" | "close" | "chevron" | "activity" | "temperature" | "flow" | "valve" | "siren" | "tower" | "search" | "plus" | "download" | "more" | "check" | "wifi" | "mail" | "shield" | "lock" | "eye" | "eyeOff"
 
 const paths: Record<IconName, React.ReactNode> = {
   overview: (
@@ -144,6 +144,24 @@ const paths: Record<IconName, React.ReactNode> = {
       <path d="m9 12 2 2 4-4" />
     </>
   ),
+  lock: (
+    <>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2M6.6 6.6C4 8.3 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6M2 2l20 20" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </>
+  ),
 }
 
 type DialogKind = "notifications" | "analysis" | "site" | "device" | "deviceActions" | "export" | "alert" | "invite" | "userActions"
@@ -256,7 +274,7 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
     },
     analysis: {
       title: "Análisis de detección",
-      subtitle: alerta ? `${codigoAlerta(alerta.id_alerta)} · Modelo ${alerta.version_modelo ?? "sin datos"}` : "",
+      subtitle: alerta ? `${codigoAlerta(alerta.id_alerta)} · Detección automática` : "",
     },
     site: {
       title: "Sitio activo",
@@ -335,7 +353,7 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
           <div className="analysis-detail">
             <div className="confidence-ring">
               <strong>{porcentaje(alerta.confianza)}</strong>
-              <small>confianza</small>
+              <small>certeza</small>
             </div>
             <div className="analysis-copy">
               <span className="badge badge--warning">{TITULO_ALERTA[alerta.tipo]}</span>
@@ -345,7 +363,7 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
             <dl>
               <div>
                 <dt>Ubicación estimada</dt>
-                <dd>{alerta.posicion_estimada_m === null ? "Pendiente" : `${alerta.posicion_estimada_m} m`}</dd>
+                <dd>{alerta.posicion_estimada_m === null ? "Calculando ubicación" : `${alerta.posicion_estimada_m} m`}</dd>
               </div>
               <div>
                 <dt>Presión</dt>
@@ -356,12 +374,12 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
                 <dd>{alerta.pinza ? `Pinza ${alerta.pinza}` : "—"}</dd>
               </div>
               <div>
-                <dt>Modelo</dt>
+                <dt>Versión del detector</dt>
                 <dd>{alerta.version_modelo ?? "—"}</dd>
               </div>
             </dl>
             <button className="primary-btn modal-primary" disabled>
-              <Icon name="activity" /> Reproducir señal: pendiente
+              <Icon name="activity" /> Audio de la señal no disponible
             </button>
           </div>
         )}
@@ -371,7 +389,7 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
             <button className="selected" onClick={onClose}>
               <span>
                 <b>{tuberia?.nombre ?? "Sin tubería registrada"}</b>
-                <small>{dispositivos?.dispositivos.length ?? 0} dispositivos · Varios sitios: pendiente</small>
+                <small>{dispositivos?.dispositivos.length ?? 0} equipos conectados · Sitio principal</small>
               </span>
               <Icon name="check" />
             </button>
@@ -383,8 +401,8 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
             <div className="export-summary">
               <Icon name="devices" />
               <span>
-                <b>Pendiente</b>
-                <small>La API aún no registra dispositivos; se dan de alta con el seed.</small>
+                <b>Registro desde el panel no disponible</b>
+                <small>Los equipos se configuran durante la instalación del sistema.</small>
               </span>
             </div>
             <button className="primary-btn modal-primary" type="submit" disabled>
@@ -400,21 +418,21 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
               <Icon name="wifi" />
               <span>
                 <b>Probar conexión</b>
-                <small>Pendiente</small>
+                <small>No disponible por ahora</small>
               </span>
             </button>
             <button disabled>
               <Icon name="settings" />
               <span>
                 <b>Editar configuración</b>
-                <small>Pendiente</small>
+                <small>No disponible por ahora</small>
               </span>
             </button>
             <button className="danger-action" disabled>
               <Icon name="close" />
               <span>
                 <b>Desactivar</b>
-                <small>Pendiente</small>
+                <small>No disponible por ahora</small>
               </span>
             </button>
           </div>
@@ -478,8 +496,8 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
                   <b>Alerta generada</b>
                   <small>
                     {alerta.tipo === "fuga"
-                      ? `Detección IA con ${porcentaje(alerta.confianza)} de confianza`
-                      : "Regla de presión sostenida"}
+                      ? `Posible fuga detectada (${porcentaje(alerta.confianza)} de certeza)`
+                      : "Baja de presión continua"}
                   </small>
                 </span>
               </div>
@@ -490,7 +508,7 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
                 <span>
                   <b>Respuesta automática</b>
                   <small>
-                    {alerta.acciones} órdenes a actuadores · {alerta.correos_enviados} correos enviados
+                    {alerta.acciones} acciones de alarma · {alerta.correos_enviados} correos enviados
                   </small>
                 </span>
               </div>
@@ -589,7 +607,7 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
               <Icon name="mail" />
               <span>
                 <b>Notificaciones</b>
-                <small>Pendiente: hoy reciben correo todos los usuarios activos</small>
+                <small>Todos los usuarios activos reciben avisos por correo</small>
               </span>
             </button>
             <button
@@ -682,23 +700,23 @@ function titulosDe(nombreTuberia: string): Record<string, { title: string; subti
   return {
     overview: {
       title: "Monitoreo en vivo",
-      subtitle: `Vista general del sistema · ${nombreTuberia}`,
+      subtitle: `Estado general de la tubería · ${nombreTuberia}`,
     },
     devices: {
       title: "Dispositivos",
-      subtitle: "Estado de sensores, pinzas y actuadores",
+      subtitle: "Estado de sensores, pinzas y equipos",
     },
     alerts: {
       title: "Centro de alertas",
-      subtitle: "Seguimiento y atención de anomalías detectadas",
+      subtitle: "Avisos de posibles fugas y anomalías",
     },
     thresholds: {
       title: "Umbrales",
-      subtitle: "Parámetros de detección y respuesta automática",
+      subtitle: "Ajusta cuándo debe avisarte el sistema",
     },
     users: {
       title: "Usuarios",
-      subtitle: "Accesos, roles y destinatarios de notificaciones",
+      subtitle: "Personas con acceso y avisos por correo",
     },
     debug: {
       title: "Depuración",
@@ -710,11 +728,10 @@ function titulosDe(nombreTuberia: string): Record<string, { title: string; subti
 function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`brand ${compact ? "brand--compact" : ""}`}>
-      <img src="/hydrosense-logo.png" alt="" />
-      {!compact && (
-        <span>
-          <b>Hydro</b>Sense
-        </span>
+      {compact ? (
+        <img src="/hydrosense-icon.svg" alt="HydroSense" className="brand__icon" />
+      ) : (
+        <img src="/hydrosense-horizontal-dark.svg" alt="HydroSense" className="brand__horizontal" />
       )}
     </div>
   )
@@ -810,7 +827,7 @@ function Sidebar({
             <span />
           </div>
           <div>
-            <b>{operativo ? "Sistema operativo" : "Sistema con fallas de conexión"}</b>
+            <b>{operativo ? "Sistema funcionando bien" : "Problema de conexión"}</b>
             <small>Última lectura: {haceCuanto(ultima, ahora).toLowerCase()}</small>
           </div>
         </div>
@@ -1022,7 +1039,7 @@ function LiveChart() {
         </span>
         <span>
           <i className="flow" />
-          Caudal: pendiente
+          Caudal (sin sensor)
         </span>
       </div>
       <div className="chart-wrap">
@@ -1095,7 +1112,7 @@ function Pipeline() {
               <Icon name="alerts" size={18} />
             </div>
             <b>Posible fuga</b>
-            <small>{fuga.posicion_estimada_m === null ? "Posición pendiente" : `${fuga.posicion_estimada_m} m`}</small>
+            <small>{fuga.posicion_estimada_m === null ? "Calculando ubicación" : `A ${fuga.posicion_estimada_m} m`}</small>
           </div>
         )}
         <div className="pipe-node sensor sensor-b">
@@ -1112,8 +1129,8 @@ function Pipeline() {
       <div className="pipeline-note">
         <Icon name="activity" size={18} />
         <span>
-          <b>{fuga ? `Confianza de detección: ${porcentaje(fuga.confianza)}` : "Sin fugas detectadas"}</b>
-          <small>{fuga ? `Modelo ${fuga.version_modelo ?? "sin datos"} · ${haceCuanto(fuga.detectada_en, ahora).toLowerCase()}` : "El modelo no reporta alertas abiertas"}</small>
+          <b>{fuga ? `Certeza de detección: ${porcentaje(fuga.confianza)}` : "Sin fugas detectadas"}</b>
+          <small>{fuga ? `Detectada ${haceCuanto(fuga.detectada_en, ahora).toLowerCase()}` : "Todo el tramo funciona con normalidad"}</small>
         </span>
         {fuga && <button onClick={() => openDialog("analysis", { alerta: fuga })}>Ver análisis</button>}
       </div>
@@ -1144,7 +1161,7 @@ function EventsPanel({ goAlerts }: { goAlerts: () => void }) {
               <b>{TITULO_ALERTA[a.tipo]}</b>
               <p>
                 {ubicacionAlerta(a)}
-                {a.confianza === null ? "" : ` · Confianza ${porcentaje(a.confianza)}`}
+                {a.confianza === null ? "" : ` · Certeza ${porcentaje(a.confianza)}`}
               </p>
               <small>
                 {ESTADO_ALERTA[a.estado]} · {haceCuanto(a.detectada_en, ahora)}
@@ -1172,8 +1189,8 @@ const COLOR_TORRETA: Record<string, string> = { rojo: "var(--red-500)", amarillo
 const TEXTO_TORRETA: Record<string, string> = { rojo: "Rojo · Alerta", amarillo: "Amarillo · Precaución", verde: "Verde · Normal" }
 
 function textoConfirmacion(actuador: Actuador | undefined) {
-  if (!actuador?.id_accion) return "Sin órdenes registradas"
-  return actuador.confirmada_en ? "Confirmado por el ESP32" : "Enviado, sin confirmar"
+  if (!actuador?.id_accion) return "Sin cambios recientes"
+  return actuador.confirmada_en ? "Cambio aplicado" : "Aplicando cambio..."
 }
 
 function Actuators() {
@@ -1204,7 +1221,7 @@ function Actuators() {
       <div className="panel__head">
         <div>
           <h2>Actuadores</h2>
-          <p>Último comando de cada uno</p>
+          <p>Estado de la válvula, sirena y torreta</p>
         </div>
         <span className={`badge ${conectados ? "badge--success" : "badge--warning"}`}>{conectados ? "Conectados" : "Sin conexión"}</span>
       </div>
@@ -1215,10 +1232,10 @@ function Actuators() {
           </span>
           <div>
             <small>{valvula?.nombre ?? "Válvula"}</small>
-            <b>{valvula?.comando === "cerrar" ? "Cerrada" : valvula?.comando === "abrir" ? "Abierta" : "Sin órdenes"}</b>
+            <b>{valvula?.comando === "cerrar" ? "Cerrada" : valvula?.comando === "abrir" ? "Abierta" : "Abierta (normal)"}</b>
           </div>
           <span className="readonly-state">
-            <i /> Solo lectura
+            <i /> Solo consulta
           </span>
         </div>
         <div className="actuator">
@@ -1244,7 +1261,7 @@ function Actuators() {
           </span>
           <div>
             <small>Torreta · {textoConfirmacion(torreta)}</small>
-            <b>{torreta?.comando ? TEXTO_TORRETA[torreta.comando] : "Sin órdenes"}</b>
+            <b>{torreta?.comando ? TEXTO_TORRETA[torreta.comando] : "Apagada"}</b>
           </div>
           <span className="color-dot" style={torreta?.comando ? { background: COLOR_TORRETA[torreta.comando] } : { background: "var(--line)" }} />
         </div>
@@ -1265,11 +1282,11 @@ function Overview({ setPage }: { setPage: (p: string) => void }) {
   const principal = alertas.find((a) => a.estado === "activa")
   const umbralPresion = umbrales?.pinzas.find((p) => p.nombre === "A")?.umbral_presion_kpa ?? null
   const presion = medicionTarjeta(ultimaLectura(lecturas, "presion"), kpaABar, (valor) => {
-    if (umbralPresion === null || umbralPresion === 0) return "Sin umbral"
+    if (umbralPresion === null || umbralPresion === 0) return "Sin límite configurado"
     const diferencia = Math.round((Math.abs(valor - umbralPresion) / umbralPresion) * 100)
-    return `${diferencia}% ${valor < umbralPresion ? "bajo" : "sobre"} el umbral`
+    return `${diferencia}% ${valor < umbralPresion ? "por debajo" : "por encima"} del límite`
   })
-  const temperatura = medicionTarjeta(ultimaLectura(lecturas, "temperatura"), (valor) => valor.toFixed(1), () => "Dato válido")
+  const temperatura = medicionTarjeta(ultimaLectura(lecturas, "temperatura"), (valor) => valor.toFixed(1), () => "Lectura normal")
   const lista = dispositivos?.dispositivos ?? []
   return (
     <>
@@ -1311,7 +1328,7 @@ function Overview({ setPage }: { setPage: (p: string) => void }) {
           label="Caudal"
           value="—"
           unit="L/min"
-          note="Pendiente: sin dato en el contrato MQTT"
+          note="Sensor no instalado"
           tone="cyan"
         />
         <MetricCard
@@ -1370,7 +1387,7 @@ function MaintenanceOverview({ setPage }: { setPage: (p: string) => void }) {
           <h2>{principal ? `${TITULO_ALERTA[principal.tipo]} en ${principal.tuberia}` : "No hay alertas abiertas"}</h2>
           <p>
             {principal
-              ? `Alerta ${codigoAlerta(principal.id_alerta)} · Detectada ${haceCuanto(principal.detectada_en, ahora).toLowerCase()}${principal.confianza === null ? "" : ` · Confianza IA ${porcentaje(principal.confianza)}`}`
+              ? `Alerta ${codigoAlerta(principal.id_alerta)} · Detectada ${haceCuanto(principal.detectada_en, ahora).toLowerCase()}${principal.confianza === null ? "" : ` · Certeza ${porcentaje(principal.confianza)}`}`
               : "El sistema sigue monitoreando en vivo"}
           </p>
         </div>
@@ -1411,7 +1428,7 @@ function MaintenanceOverview({ setPage }: { setPage: (p: string) => void }) {
           <div className="panel__head">
             <div>
               <h2>Orden de trabajo actual</h2>
-              <p>Protocolo de inspección · Avance sin guardar (pendiente)</p>
+              <p>Pasos recomendados para revisar en sitio</p>
             </div>
             <span className={`badge ${principal ? "badge--warning" : "badge--success"}`}>{principal ? ESTADO_ALERTA[principal.estado] : "Sin orden"}</span>
           </div>
@@ -1422,7 +1439,7 @@ function MaintenanceOverview({ setPage }: { setPage: (p: string) => void }) {
             <div>
               <small>UBICACIÓN</small>
               <b>{principal ? ubicacionAlerta(principal) : "Sin incidente"}</b>
-              <p>{tuberia ? `Posición exacta: pendiente · ${tuberia.material.toUpperCase()} Ø ${tuberia.diametro_mm} mm` : ""}</p>
+              <p>{tuberia ? `Tubería de ${tuberia.material.toUpperCase()} · Diámetro ${tuberia.diametro_mm} mm` : ""}</p>
             </div>
           </div>
           <div className="checklist">
@@ -1503,14 +1520,14 @@ function MaintenanceOverview({ setPage }: { setPage: (p: string) => void }) {
                 — <em>L/min</em>
               </b>
             </div>
-            <strong>Pendiente</strong>
+            <strong>Sin sensor</strong>
           </div>
           <div className="safety-state">
             <Icon name="shield" />
             <div>
               <b>{senalizacion ? "Señalización activa" : "Señalización apagada"}</b>
               <p>
-                Sirena: {sirena?.comando === "encender" ? "activada" : "desactivada"} · Torreta: {torreta?.comando ?? "sin órdenes"}
+                Sirena: {sirena?.comando === "encender" ? "encendida" : "apagada"} · Torreta: {torreta?.comando ?? "apagada"}
               </p>
             </div>
           </div>
@@ -1795,16 +1812,20 @@ function Thresholds() {
               <em>{p.activo ? "Activa" : "Inactiva"}</em>
             </div>
             <label>
-              Presión mínima{p.nombre === "A" ? " " : " (el sensor está junto a la pinza A) "}
-              <span>
-                <b>{kpaABar(valor.umbral_presion_kpa)}</b> bar
+              <span className="range-head">
+                <span>Presión mínima antes de avisar{p.nombre === "A" ? "" : " (se mide en la pinza A)"}</span>
+                <span>
+                  <b>{kpaABar(valor.umbral_presion_kpa)}</b> bar
+                </span>
               </span>
               <input type="range" min="0" max="500" step="5" value={valor.umbral_presion_kpa} onChange={(event) => cambiar(p.id_pinza, "umbral_presion_kpa", Number(event.target.value))} />
             </label>
             <label>
-              Confianza mínima de IA{" "}
-              <span>
-                <b>{Math.round(valor.umbral_confianza * 100)}</b> %
+              <span className="range-head">
+                <span>Certeza mínima para avisar de fuga</span>
+                <span>
+                  <b>{Math.round(valor.umbral_confianza * 100)}</b> %
+                </span>
               </span>
               <input type="range" min="0" max="1" step="0.01" value={valor.umbral_confianza} onChange={(event) => cambiar(p.id_pinza, "umbral_confianza", Number(event.target.value))} />
             </label>
@@ -1822,9 +1843,11 @@ function Thresholds() {
           </div>
         </div>
         <label>
-          Caudal máximo permitido{" "}
-          <span>
-            <b>Pendiente</b>
+          <span className="range-head">
+            <span>Caudal máximo permitido</span>
+            <span>
+              <b>Sin sensor</b>
+            </span>
           </span>
           <input type="range" min="1" max="20" defaultValue="12" disabled />
         </label>
@@ -1832,8 +1855,8 @@ function Thresholds() {
           <span>
             <Icon name="shield" />
             <span>
-              <b>Respuesta automática</b>
-              <small>Pendiente en pantalla: se configura con ACTUADORES_AUTO en el servidor</small>
+              <b>Alarma automática al detectar fuga</b>
+              <small>Enciende automáticamente la sirena y la torreta roja cuando ocurre una alerta</small>
             </span>
           </span>
         </div>
@@ -1893,7 +1916,7 @@ function Users() {
               <Icon name="mail" />
               <span>
                 <b>Alertas por correo</b>
-                <small>{u.activo ? "Activo: recibe alertas · Ajuste individual pendiente" : "Acceso desactivado"}</small>
+                <small>{u.activo ? "Recibe avisos por correo cuando hay una alerta" : "Acceso desactivado"}</small>
               </span>
               <i className={u.activo ? "enabled" : ""} />
             </div>
@@ -1985,18 +2008,25 @@ function BottomNav({
 function Login({ onEntrar }: { onEntrar: (sesion: Sesion) => void }) {
   const [error, setError] = useState("")
   const [ocupado, setOcupado] = useState(false)
+  const [mostrarPassword, setMostrarPassword] = useState(false)
+  useEffect(() => {
+    document.documentElement.classList.add("is-login")
+    document.body.classList.add("is-login")
+    return () => {
+      document.documentElement.classList.remove("is-login")
+      document.body.classList.remove("is-login")
+    }
+  }, [])
   return (
-    <div className="modal-layer" role="presentation">
-      <section className="modal" aria-labelledby="login-title">
-        <div className="modal__head">
-          <div>
-            <Logo compact />
-            <h2 id="login-title">Iniciar sesión</h2>
-            <p>Accede con tu cuenta de HydroSense</p>
-          </div>
+    <div className="login-screen">
+      <section className="login-card" aria-labelledby="login-title">
+        <div className="login-card__head">
+          <img className="login-logo" src="/hydrosense-vertical.svg" alt="HydroSense" />
+          <h1 id="login-title">Iniciar sesión</h1>
+          <p>Ingresa tus datos para consultar el estado de la tubería en tiempo real</p>
         </div>
         <form
-          className="modal-form"
+          className="login-form"
           onSubmit={async (event) => {
             event.preventDefault()
             const campos = new FormData(event.currentTarget)
@@ -2011,17 +2041,46 @@ function Login({ onEntrar }: { onEntrar: (sesion: Sesion) => void }) {
             }
           }}
         >
-          <label>
-            Correo electrónico
-            <input name="correo" type="email" required autoComplete="username" />
+          <label className="login-field">
+            <span>Correo electrónico</span>
+            <div className="login-input">
+              <span className="login-input__icon">
+                <Icon name="mail" size={18} />
+              </span>
+              <input name="correo" type="email" required autoComplete="username" placeholder="nombre@empresa.com" />
+            </div>
           </label>
-          <label>
-            Contraseña
-            <input name="password" type="password" required autoComplete="current-password" />
+          <label className="login-field">
+            <span>Contraseña</span>
+            <div className="login-input">
+              <span className="login-input__icon">
+                <Icon name="lock" size={18} />
+              </span>
+              <input
+                name="password"
+                type={mostrarPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                placeholder="Tu contraseña"
+              />
+              <button
+                type="button"
+                className="login-eye"
+                onClick={() => setMostrarPassword((previo) => !previo)}
+                aria-label={mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                <Icon name={mostrarPassword ? "eyeOff" : "eye"} size={18} />
+              </button>
+            </div>
           </label>
-          {error && <p role="alert">{error}</p>}
-          <button className="primary-btn modal-primary" type="submit" disabled={ocupado}>
-            Entrar
+          {error && (
+            <p className="login-error" role="alert">
+              <Icon name="alerts" size={16} />
+              <span>{error}</span>
+            </p>
+          )}
+          <button className="primary-btn login-submit" type="submit" disabled={ocupado}>
+            {ocupado ? "Entrando..." : "Entrar"}
           </button>
         </form>
       </section>

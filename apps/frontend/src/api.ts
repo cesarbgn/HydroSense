@@ -249,4 +249,4 @@ export function haceCuanto(iso: string | null, ahora: number = Date.now()) {
   return fechaLocal(iso, ahora)
 }
 
-export const TEXTO_CALIDAD: Record<Calidad, string> = { ok: 'Dato válido', sin_senal: 'Sin señal', fuera_rango: 'Fuera de rango' }
+export const TEXTO_CALIDAD: Record<Calidad, string> = { ok: 'Lectura normal', sin_senal: 'Sin señal', fuera_rango: 'Fuera de rango' }
