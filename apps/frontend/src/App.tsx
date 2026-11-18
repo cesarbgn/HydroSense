@@ -82,8 +82,9 @@ const paths: Record<IconName, React.ReactNode> = {
   activity: <path d="M3 12h4l2-7 4 14 2-7h6" />,
   temperature: (
     <>
-      <path d="M14 14.8V5a4 4 0 0 0-8 0v9.8a6 6 0 1 0 8 0Z" />
-      <path d="M10 9v8" />
+      <path d="M14.5 13.7V5a2.5 2.5 0 0 0-5 0v8.7a4.5 4.5 0 1 0 5 0Z" />
+      <path d="M12 10v6.2" />
+      <circle cx="12" cy="17.5" r="1.4" fill="currentColor" stroke="none" />
     </>
   ),
   flow: <path d="M12 2s7 7.2 7 13a7 7 0 0 1-14 0c0-5.8 7-13 7-13Z" />,
@@ -128,8 +129,8 @@ const paths: Record<IconName, React.ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
   wifi: (
     <>
-      <path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0" />
-      <circle cx="12" cy="20" r="1" />
+      <path d="M2.1 8.6a14 14 0 0 1 19.8 0M4.95 12.15a9.5 9.5 0 0 1 14.1 0M8.3 15.15a5 5 0 0 1 7.4 0" />
+      <circle cx="12" cy="18.5" r="1.2" fill="currentColor" stroke="none" />
     </>
   ),
   mail: (
@@ -681,6 +682,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
       strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
+      style={{ display: "block", flexShrink: 0 }}
       aria-hidden="true"
     >
       {paths[name]}
@@ -877,14 +879,6 @@ function Header({
         <p>{heading.subtitle}</p>
       </div>
       <div className="header__actions">
-        <div className="role-switch" aria-label="Rol de la sesión">
-          <button className={role === "manager" ? "active" : ""} disabled>
-            Gerencia
-          </button>
-          <button className={role === "maintenance" ? "active" : ""} disabled>
-            Mantenimiento
-          </button>
-        </div>
         <span className="live-pill">
           <i /> {conectado ? "En vivo" : "Sin conexión"}
         </span>
@@ -2005,10 +1999,40 @@ function BottomNav({
   )
 }
 
-function Login({ onEntrar }: { onEntrar: (sesion: Sesion) => void }) {
+const CREDENCIALES_PRUEBA = [
+  {
+    id: "gerencia",
+    rol: "Gerencia",
+    nombre: "Carla Mendoza",
+    correo: "gerencia@hydrosense.local",
+    password: "hydrosense_gerencia_2026",
+  },
+  {
+    id: "mantenimiento",
+    rol: "Mantenimiento",
+    nombre: "José Ramírez",
+    correo: "mantenimiento@hydrosense.local",
+    password: "hydrosense_mantenimiento_2026",
+  },
+] as const
+
+function Login({ onEntrar, onVolverInicio }: { onEntrar: (sesion: Sesion) => void; onVolverInicio?: () => void }) {
+  const [correo, setCorreo] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [ocupado, setOcupado] = useState(false)
   const [mostrarPassword, setMostrarPassword] = useState(false)
+  const [cuentaActiva, setCuentaActiva] = useState("")
+  const [pruebasAbiertas, setPruebasAbiertas] = useState(false)
+
+  const llenarCredenciales = (cuenta: (typeof CREDENCIALES_PRUEBA)[number]) => {
+    setCorreo(cuenta.correo)
+    setPassword(cuenta.password)
+    setError("")
+    setCuentaActiva(cuenta.id)
+    setPruebasAbiertas(false)
+  }
+
   useEffect(() => {
     document.documentElement.classList.add("is-login")
     document.body.classList.add("is-login")
@@ -2047,7 +2071,15 @@ function Login({ onEntrar }: { onEntrar: (sesion: Sesion) => void }) {
               <span className="login-input__icon">
                 <Icon name="mail" size={18} />
               </span>
-              <input name="correo" type="email" required autoComplete="username" placeholder="nombre@empresa.com" />
+              <input
+                name="correo"
+                type="email"
+                required
+                autoComplete="username"
+                placeholder="nombre@empresa.com"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+              />
             </div>
           </label>
           <label className="login-field">
@@ -2062,6 +2094,8 @@ function Login({ onEntrar }: { onEntrar: (sesion: Sesion) => void }) {
                 required
                 autoComplete="current-password"
                 placeholder="Tu contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
               <button
                 type="button"
@@ -2082,8 +2116,94 @@ function Login({ onEntrar }: { onEntrar: (sesion: Sesion) => void }) {
           <button className="primary-btn login-submit" type="submit" disabled={ocupado}>
             {ocupado ? "Entrando..." : "Entrar"}
           </button>
+          {onVolverInicio && (
+            <button type="button" className="login-back" onClick={onVolverInicio}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              Volver al inicio
+            </button>
+          )}
         </form>
       </section>
+
+      <div className="login-demo-dock">
+        <div className={`login-demo-panel${pruebasAbiertas ? " login-demo-panel--open" : ""}`} aria-label="Credenciales de prueba">
+          <div className="login-demo-panel__head">
+            <div>
+              <span className="login-demo-panel__eyebrow">Solo pruebas</span>
+              <h2>Credenciales de acceso</h2>
+            </div>
+            <button
+              type="button"
+              className="login-demo-panel__close"
+              onClick={() => setPruebasAbiertas(false)}
+              aria-label="Cerrar credenciales de prueba"
+            >
+              ×
+            </button>
+          </div>
+          <div className="login-demo-list">
+            {CREDENCIALES_PRUEBA.map((cuenta) => {
+              const seleccionada = cuentaActiva === cuenta.id && correo === cuenta.correo && password === cuenta.password
+              return (
+                <div key={cuenta.id} className={`login-demo-item${seleccionada ? " login-demo-item--active" : ""}`}>
+                  <div className="login-demo-item__top">
+                    <div>
+                      <strong>{cuenta.rol}</strong>
+                      <span>{cuenta.nombre}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="login-demo-fill"
+                      onClick={() => llenarCredenciales(cuenta)}
+                    >
+                      {seleccionada ? "Listo ✓" : "Llenar"}
+                    </button>
+                  </div>
+                  <dl className="login-demo-creds">
+                    <div>
+                      <dt>Correo</dt>
+                      <dd>{cuenta.correo}</dd>
+                    </div>
+                    <div>
+                      <dt>Contraseña</dt>
+                      <dd>{cuenta.password}</dd>
+                    </div>
+                  </dl>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="login-demo-mobile-bar" role="region" aria-label="Acceso rápido de pruebas">
+          <button
+            type="button"
+            className="login-demo-mobile-bar__toggle"
+            aria-expanded={pruebasAbiertas}
+            onClick={() => setPruebasAbiertas((prev) => !prev)}
+          >
+            <span>Claves</span>
+            <span aria-hidden="true">{pruebasAbiertas ? "▾" : "▴"}</span>
+          </button>
+          <div className="login-demo-mobile-bar__actions">
+            {CREDENCIALES_PRUEBA.map((cuenta) => {
+              const seleccionada = cuentaActiva === cuenta.id && correo === cuenta.correo && password === cuenta.password
+              return (
+                <button
+                  key={cuenta.id}
+                  type="button"
+                  className={`login-demo-fill login-demo-fill--compact${seleccionada ? " is-active" : ""}`}
+                  onClick={() => llenarCredenciales(cuenta)}
+                >
+                  {seleccionada ? `${cuenta.rol} ✓` : cuenta.rol}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -2146,14 +2266,14 @@ function Tablero({ onLogout }: { onLogout: () => void }) {
   )
 }
 
-export default function App() {
+export default function App({ onVolverInicio }: { onVolverInicio?: () => void } = {}) {
   const [sesion, setSesion] = useState<Sesion | null>(leerSesion)
   const salir = () => {
     cerrarSesion()
     setSesion(null)
   }
   useEffect(() => configurarExpiracion(salir), [])
-  if (!sesion) return <Login onEntrar={setSesion} />
+  if (!sesion) return <Login onEntrar={setSesion} onVolverInicio={onVolverInicio} />
   return (
     <DatosProvider key={sesion.usuario.id_usuario} sesion={sesion}>
       <Tablero onLogout={salir} />
