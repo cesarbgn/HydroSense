@@ -64,6 +64,8 @@
 .sidebar__status b { font-size: 12px; color: #cbd7e5; }
 .status-orb { flex: 0 0 28px; width: 28px; height: 28px; display: grid!important; place-items: center; border-radius: 50%; background: rgba(26,170,117,.13); }
 .status-orb span { width: 7px; height: 7px; border-radius: 50%; background: #2bdd98; box-shadow: 0 0 0 4px rgba(43,221,152,.12); }
+.status-orb--error { background: rgba(233,77,92,.16); }
+.status-orb--error span { background: #f26472; box-shadow: 0 0 0 4px rgba(242,100,114,.18); }
 .profile { display: grid; grid-template-columns: 35px minmax(0, 1fr) 20px; gap: 10px; align-items: center; padding: 10px 8px; border: 0; color: #fff; background: transparent; text-align: left; }
 .profile > span:not(.avatar) { min-width: 0; display: flex; flex-direction: column; }
 .profile b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -84,6 +86,8 @@
 .notification i { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; display: grid; place-items: center; border: 2px solid #fff; border-radius: 12px; color: #fff; background: var(--red-500); font-size: 10px; font-style: normal; }
 .live-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 20px; color: #16724f; background: var(--green-100); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .live-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--green-500); box-shadow: 0 0 0 3px rgba(26,170,117,.13); }
+.live-pill--offline { color: #a72d3b; background: var(--red-100); }
+.live-pill--offline i { background: var(--red-500); box-shadow: 0 0 0 3px rgba(233,77,92,.15); }
 .alert-banner { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 11px; align-items: start; padding: 14px; margin-bottom: 14px; border: 1px solid #f7cdd1; border-radius: 12px; background: var(--red-100); box-shadow: var(--shadow); }
 .alert-banner > span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px; color: var(--red-500); background: #fff; }
 .alert-banner b { display: block; color: #a72d3b; font-size: 13px; }

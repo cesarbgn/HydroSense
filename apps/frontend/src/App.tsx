@@ -825,7 +825,7 @@ function Sidebar({
           )}
         </nav>
         <div className="sidebar__status">
-          <div className="status-orb">
+          <div className={`status-orb${operativo ? "" : " status-orb--error"}`}>
             <span />
           </div>
           <div>
@@ -879,7 +879,7 @@ function Header({
         <p>{heading.subtitle}</p>
       </div>
       <div className="header__actions">
-        <span className="live-pill">
+        <span className={`live-pill${conectado ? "" : " live-pill--offline"}`}>
           <i /> {conectado ? "En vivo" : "Sin conexión"}
         </span>
         <button
@@ -1346,7 +1346,7 @@ function Overview({ setPage }: { setPage: (p: string) => void }) {
 
 function MaintenanceOverview({ setPage }: { setPage: (p: string) => void }) {
   const [step, setStep] = useState(1)
-  const { alertas, lecturas, actuadores, umbrales, ahora } = useDatos()
+  const { alertas, lecturas, actuadores, umbrales, ahora, conectado } = useDatos()
   const { openDialog } = useInteractions()
   const abiertas = alertas.filter(estaAbierta)
   const prioridad = { alta: 0, media: 1, baja: 2 }
@@ -1482,8 +1482,8 @@ function MaintenanceOverview({ setPage }: { setPage: (p: string) => void }) {
               <h2>Diagnóstico en vivo</h2>
               <p>Datos para validar en campo</p>
             </div>
-            <span className="live-pill">
-              <i /> En vivo
+            <span className={`live-pill${conectado ? "" : " live-pill--offline"}`}>
+              <i /> {conectado ? "En vivo" : "Sin conexión"}
             </span>
           </div>
           <div className={`diagnosis-value ${presionBaja ? "danger" : ""}`}>
