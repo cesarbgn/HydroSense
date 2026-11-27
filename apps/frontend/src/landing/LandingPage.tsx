@@ -79,7 +79,7 @@ export default function LandingPage({ onOpenDashboard }: LandingPageProps) {
 
               <div className="hs-hero__right">
                 <p className="hs-hero__subtitle">
-                  HydroSense utiliza sensores piezoeléctricos y mediciones de presión y temperatura
+                  HydroSense utiliza sensores piezoeléctricos y un transductor de presión
                   para identificar patrones asociados a posibles fugas de agua y activar alertas en
                   tiempo real.
                 </p>
@@ -354,7 +354,7 @@ export default function LandingPage({ onOpenDashboard }: LandingPageProps) {
               <figure className="hs-closing-preview">
                 <img
                   src="/landing/dashboard-preview.png"
-                  alt="Captura real del dashboard de HydroSense mostrando presión, temperatura, conectividad y gráfica en tiempo real"
+                  alt="Captura real del dashboard de HydroSense mostrando presión, vibración piezoeléctrica, conectividad y gráfica en tiempo real"
                   width={1024}
                   height={538}
                   loading="lazy"

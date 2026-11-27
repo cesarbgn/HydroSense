@@ -13,6 +13,12 @@ export const TOPICOS = [
 ]
 
 let cliente: MqttClient | null = null
+let temporizadorTiempo: NodeJS.Timeout | null = null
+
+function publicarTiempo() {
+  if (!cliente || !estado.mqttConectado) return
+  cliente.publish('hydrosense/tiempo', String(Date.now()), { qos: 0, retain: true })
+}
 
 export function iniciarMqtt(alRecibir: (topico: string, carga: Buffer, retenido: boolean) => Promise<void>) {
   cliente = mqtt.connect(config.MQTT_URL, { reconnectPeriod: 2000 })
@@ -23,6 +29,8 @@ export function iniciarMqtt(alRecibir: (topico: string, carga: Buffer, retenido:
     cliente?.subscribe(TOPICOS, { qos: 1 }, (error) => {
       if (error) log.error('No se pudo suscribir a los tópicos', error)
     })
+    publicarTiempo()
+    if (!temporizadorTiempo) temporizadorTiempo = setInterval(publicarTiempo, 15_000)
     emitir('dispositivo', { mqtt_conectado: true })
   })
   cliente.on('close', () => {
@@ -35,6 +43,7 @@ export function iniciarMqtt(alRecibir: (topico: string, carga: Buffer, retenido:
   // Un solo mensaje a la vez: las reglas de alerta dependen del orden de llegada.
   let cola: Promise<void> = Promise.resolve()
   cliente.on('message', (topico, carga, paquete) => {
+    if (topico.endsWith('/estado') && carga.toString('utf8').trim() === 'online') publicarTiempo()
     cola = cola.then(() => alRecibir(topico, carga, paquete.retain)).catch((error) => log.error(`Error procesando ${topico}`, error))
   })
 }
@@ -45,6 +54,10 @@ export async function publicar(topico: string, carga: object) {
 }
 
 export async function cerrarMqtt() {
+  if (temporizadorTiempo) {
+    clearInterval(temporizadorTiempo)
+    temporizadorTiempo = null
+  }
   await cliente?.endAsync()
   cliente = null
 }

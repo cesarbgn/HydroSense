@@ -214,6 +214,38 @@ export const api = {
     pedir<Usuario>(`/usuarios/${id}`, { metodo: 'PUT', cuerpo: datos }),
   actuadores: () => pedir<Actuador[]>('/actuadores'),
   comando: (id: number, comando: string) => pedir(`/actuadores/${id}/comando`, { metodo: 'POST', cuerpo: { comando } }),
+  exportarResumen: (desde?: Date, hasta?: Date) => {
+    const params = new URLSearchParams()
+    if (desde) params.set('desde', desde.toISOString())
+    if (hasta) params.set('hasta', hasta.toISOString())
+    const qs = params.toString()
+    return pedir<{ vibracion: number; presion: number }>(`/exportar/resumen${qs ? `?${qs}` : ''}`)
+  },
+  descargarMedicionesCsv: async (opciones: { dataset: 'vibracion' | 'presion'; desde?: Date; hasta?: Date; etiqueta?: '' | '0' | '1' }) => {
+    const params = new URLSearchParams({ dataset: opciones.dataset })
+    if (opciones.desde) params.set('desde', opciones.desde.toISOString())
+    if (opciones.hasta) params.set('hasta', opciones.hasta.toISOString())
+    if (opciones.etiqueta === '0' || opciones.etiqueta === '1') params.set('etiqueta', opciones.etiqueta)
+    const token = leerSesion()?.token
+    let respuesta: Response
+    try {
+      respuesta = await fetch(`${API_URL}/api/exportar/csv?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+    } catch {
+      throw new ErrorApi(0, 'No se pudo conectar con el servidor')
+    }
+    if (!respuesta.ok) {
+      if (respuesta.status === 401 && token) alExpirar()
+      const datos = (await respuesta.json().catch(() => null)) as { error?: string } | null
+      throw new ErrorApi(respuesta.status, datos?.error ?? 'No se pudo generar el archivo CSV')
+    }
+    const disposicion = respuesta.headers.get('Content-Disposition') ?? ''
+    const match = disposicion.match(/filename="([^"]+)"/)
+    const nombre = match?.[1] ?? `${opciones.dataset}-hydrosense.csv`
+    const blob = await respuesta.blob()
+    return { blob, nombre }
+  },
 }
 
 export function conectarTiempoReal(): Socket {

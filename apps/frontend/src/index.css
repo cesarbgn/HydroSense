@@ -76,6 +76,8 @@
 .header__title h1 { font-size: 17px; letter-spacing: -.4px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header__title p { overflow: hidden; margin-top: 3px; color: var(--muted); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .header__actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.header-export-btn { height: 34px; padding: 0 9px; gap: 6px; font-size: 12px; }
+.header-export-btn span { display: none; }
 .role-switch { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--canvas); }
 .role-switch button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 0; font-weight: 600; }
 .role-switch button:first-child:after { content: 'G'; font-size: 11px; }
@@ -119,16 +121,12 @@
 .legend span { display: flex; align-items: center; gap: 6px; }
 .legend i { width: 8px; height: 8px; border-radius: 50%; }
 .legend .pressure { background: var(--blue-500); }
-.legend .temperature { background: var(--purple-500); }
-.legend .flow { background: var(--cyan-500); }
 .chart-wrap { height: 210px; position: relative; }
 .chart-wrap svg { width: 100%; height: 180px; overflow: visible; }
 .grid-line { stroke: #edf0f4; stroke-width: 1; stroke-dasharray: 3 5; }
 .chart-area { fill: rgba(52,120,246,.06); }
 .line { fill: none; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
 .pressure-line { stroke: var(--blue-500); }
-.temp-line { stroke: var(--purple-500); }
-.flow-line { stroke: var(--cyan-500); }
 .point { fill: #fff; stroke: var(--blue-500); stroke-width: 3; vector-effect: non-scaling-stroke; }
 .chart-labels { display: flex; justify-content: space-between; padding-left: 5%; color: #7e8da0; font-size: 11px; }
 .badge { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
@@ -430,6 +428,8 @@ html.is-login, body.is-login, html.is-login #root { position: fixed; inset: 0; w
   .page-content { padding: 22px; }
   .header { padding: 10px 20px; }
   .header__actions { gap: 8px; }
+  .header-export-btn { height: 36px; padding: 0 12px; }
+  .header-export-btn span { display: inline; }
   .live-pill { padding: 6px 11px; }
   .avatar--mobile { display: none; }
   .role-switch button { width: auto; padding: 0 11px; font-size: 12px; }

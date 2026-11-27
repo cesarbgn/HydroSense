@@ -24,10 +24,11 @@ import {
   type RolApi,
   type Sesion,
   type Usuario,
+  type Vibracion,
 } from "./api"
 import { DatosProvider, useDatos } from "./datos"
 
-type IconName = "overview" | "devices" | "alerts" | "thresholds" | "users" | "settings" | "bell" | "menu" | "close" | "chevron" | "activity" | "temperature" | "flow" | "valve" | "siren" | "tower" | "search" | "plus" | "download" | "more" | "check" | "wifi" | "mail" | "shield" | "lock" | "eye" | "eyeOff"
+type IconName = "overview" | "devices" | "alerts" | "thresholds" | "users" | "settings" | "bell" | "menu" | "close" | "chevron" | "activity" | "flow" | "valve" | "siren" | "tower" | "search" | "plus" | "download" | "more" | "check" | "wifi" | "mail" | "shield" | "lock" | "eye" | "eyeOff"
 
 const paths: Record<IconName, React.ReactNode> = {
   overview: (
@@ -80,13 +81,6 @@ const paths: Record<IconName, React.ReactNode> = {
   close: <path d="m6 6 12 12M18 6 6 18" />,
   chevron: <path d="m9 18 6-6-6-6" />,
   activity: <path d="M3 12h4l2-7 4 14 2-7h6" />,
-  temperature: (
-    <>
-      <path d="M14.5 13.7V5a2.5 2.5 0 0 0-5 0v8.7a4.5 4.5 0 1 0 5 0Z" />
-      <path d="M12 10v6.2" />
-      <circle cx="12" cy="17.5" r="1.4" fill="currentColor" stroke="none" />
-    </>
-  ),
   flow: <path d="M12 2s7 7.2 7 13a7 7 0 0 1-14 0c0-5.8 7-13 7-13Z" />,
   valve: (
     <>
@@ -167,7 +161,9 @@ const paths: Record<IconName, React.ReactNode> = {
 
 type DialogKind = "notifications" | "analysis" | "site" | "device" | "deviceActions" | "export" | "alert" | "invite" | "userActions"
 
-type DialogState = { kind: DialogKind; alerta?: Alerta; usuario?: Usuario; dispositivo?: string }
+type ExportDataset = "vibracion" | "presion" | "alertas"
+
+type DialogState = { kind: DialogKind; alerta?: Alerta; usuario?: Usuario; dispositivo?: string; datasetExport?: ExportDataset }
 
 const InteractionContext = createContext({
   openDialog: (_dialog: DialogKind, _datos?: Omit<DialogState, "kind">) => {},
@@ -219,13 +215,49 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
   const alerta = alertas.find((a) => a.id_alerta === estado.alerta?.id_alerta) ?? estado.alerta
   const [comentario, setComentario] = useState("")
   const [atenciones, setAtenciones] = useState<Atencion[]>([])
-  const [rangoExport, setRangoExport] = useState("7")
+  const [tipoExport, setTipoExport] = useState<ExportDataset>(estado.datasetExport ?? "vibracion")
+  const [rangoExport, setRangoExport] = useState(estado.datasetExport === "alertas" ? "7" : "todo")
+  const [etiquetaExport, setEtiquetaExport] = useState<"" | "0" | "1">("")
+  const [resumenExport, setResumenExport] = useState<{ vibracion: number; presion: number } | null>(null)
+  const [cargandoResumen, setCargandoResumen] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [editando, setEditando] = useState(false)
+
+  const rangoMs = (rango: string): number | null => {
+    if (rango === "15m") return 15 * 60_000
+    if (rango === "1h") return 60 * 60_000
+    if (rango === "24h") return 24 * 60 * 60_000
+    if (rango === "7") return 7 * 86_400_000
+    if (rango === "30") return 30 * 86_400_000
+    return null
+  }
 
   useEffect(() => {
     if (kind === "alert" && alerta) void api.atenciones(alerta.id_alerta).then(setAtenciones).catch(() => setAtenciones([]))
   }, [kind, alerta?.id_alerta, alerta?.estado])
+
+  useEffect(() => {
+    if (kind !== "export" || tipoExport === "alertas") return
+    let vigente = true
+    setCargandoResumen(true)
+    const ventana = rangoMs(rangoExport)
+    const hasta = ventana ? new Date() : undefined
+    const desde = ventana && hasta ? new Date(hasta.getTime() - ventana) : undefined
+    void api
+      .exportarResumen(desde, hasta)
+      .then((datos) => {
+        if (vigente) setResumenExport(datos)
+      })
+      .catch(() => {
+        if (vigente) setResumenExport(null)
+      })
+      .finally(() => {
+        if (vigente) setCargandoResumen(false)
+      })
+    return () => {
+      vigente = false
+    }
+  }, [kind, tipoExport, rangoExport])
 
   const submit = (message: string) => {
     notify(message)
@@ -245,20 +277,40 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
 
   const presion = ultimaLectura(lecturas, "presion")
   const tuberia = umbrales?.tuberias[0]
-  const alertasExport = alertas.filter((a) => rangoExport === "todo" || ahora - new Date(a.detectada_en).getTime() <= Number(rangoExport) * 86_400_000)
+  const ventanaAlertas = rangoMs(rangoExport)
+  const alertasExport = alertas.filter((a) => ventanaAlertas === null || ahora - new Date(a.detectada_en).getTime() <= ventanaAlertas)
 
-  const descargarCsv = () => {
-    const columnas = ["codigo", "tipo", "severidad", "estado", "tuberia", "pinza", "confianza", "detectada_en", "cerrada_en", "correos_enviados", "acciones"]
-    const celda = (valor: unknown) => `"${String(valor ?? "").replace(/"/g, '""')}"`
-    const filas = alertasExport.map((a) =>
-      [codigoAlerta(a.id_alerta), a.tipo, a.severidad, a.estado, a.tuberia, a.pinza, a.confianza, a.detectada_en, a.cerrada_en, a.correos_enviados, a.acciones].map(celda).join(","),
-    )
-    const enlace = document.createElement("a")
-    enlace.href = URL.createObjectURL(new Blob([[columnas.join(","), ...filas].join("\n")], { type: "text/csv;charset=utf-8" }))
-    enlace.download = "alertas-hydrosense.csv"
-    enlace.click()
-    URL.revokeObjectURL(enlace.href)
-    submit("Reporte CSV generado correctamente")
+  const descargarCsv = async () => {
+    if (tipoExport === "alertas") {
+      const columnas = ["codigo", "tipo", "severidad", "estado", "tuberia", "pinza", "confianza", "detectada_en", "cerrada_en", "correos_enviados", "acciones"]
+      const celda = (valor: unknown) => `"${String(valor ?? "").replace(/"/g, '""')}"`
+      const filas = alertasExport.map((a) =>
+        [codigoAlerta(a.id_alerta), a.tipo, a.severidad, a.estado, a.tuberia, a.pinza, a.confianza, a.detectada_en, a.cerrada_en, a.correos_enviados, a.acciones].map(celda).join(","),
+      )
+      const enlace = document.createElement("a")
+      enlace.href = URL.createObjectURL(new Blob([[columnas.join(","), ...filas].join("\n")], { type: "text/csv;charset=utf-8" }))
+      enlace.download = "alertas-hydrosense.csv"
+      enlace.click()
+      URL.revokeObjectURL(enlace.href)
+      submit("Reporte CSV de alertas descargado")
+      return
+    }
+    const ventana = rangoMs(rangoExport)
+    const hasta = ventana ? new Date() : undefined
+    const desde = ventana && hasta ? new Date(hasta.getTime() - ventana) : undefined
+    await ejecutar(async () => {
+      const { blob, nombre } = await api.descargarMedicionesCsv({
+        dataset: tipoExport,
+        desde,
+        hasta,
+        etiqueta: etiquetaExport,
+      })
+      const enlace = document.createElement("a")
+      enlace.href = URL.createObjectURL(blob)
+      enlace.download = nombre
+      enlace.click()
+      URL.revokeObjectURL(enlace.href)
+    }, `Archivo ${tipoExport === "vibracion" ? "de vibración" : "de presión"} descargado`)
   }
 
   const atender = (nuevo: EstadoAlerta, exito: string) =>
@@ -290,8 +342,8 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
       subtitle: dispositivo ?? "",
     },
     export: {
-      title: "Exportar alertas",
-      subtitle: "Descarga el historial filtrado",
+      title: "Exportar datos (CSV)",
+      subtitle: "Descarga registros de la base de datos para análisis o entrenamiento IA",
     },
     alert: {
       title: "Detalle de alerta",
@@ -444,32 +496,80 @@ function Dialog({ estado, onClose }: { estado: DialogState; onClose: () => void 
             className="modal-form"
             onSubmit={(event) => {
               event.preventDefault()
-              descargarCsv()
+              void descargarCsv()
             }}
           >
             <label>
-              Rango de fechas
-              <select value={rangoExport} onChange={(event) => setRangoExport(event.target.value)}>
-                <option value="7">Últimos 7 días</option>
-                <option value="30">Últimos 30 días</option>
-                <option value="todo">Todo el historial</option>
+              Datos a exportar
+              <select
+                value={tipoExport}
+                onChange={(event) => setTipoExport(event.target.value as ExportDataset)}
+              >
+                <option value="vibracion">Vibración piezoeléctrica (Pinzas A y B · RMS y bandas)</option>
+                <option value="presion">Presión del transductor (kPa)</option>
+                <option value="alertas">Alertas del sistema</option>
               </select>
             </label>
             <label>
-              Formato
-              <select>
-                <option>CSV</option>
+              Rango de fechas
+              <select value={rangoExport} onChange={(event) => setRangoExport(event.target.value)}>
+                <option value="todo">Todo el historial</option>
+                <option value="15m">Últimos 15 minutos</option>
+                <option value="1h">Última hora</option>
+                <option value="24h">Últimas 24 horas</option>
+                <option value="7">Últimos 7 días</option>
+                <option value="30">Últimos 30 días</option>
               </select>
             </label>
+            {tipoExport !== "alertas" && (
+              <label>
+                Etiqueta para entrenamiento IA (opcional)
+                <select
+                  value={etiquetaExport}
+                  onChange={(event) => setEtiquetaExport(event.target.value as "" | "0" | "1")}
+                >
+                  <option value="">Sin etiqueta</option>
+                  <option value="0">0 — Normal (sin fuga)</option>
+                  <option value="1">1 — Fuga</option>
+                </select>
+              </label>
+            )}
             <div className="export-summary">
               <Icon name="download" />
               <span>
-                <b>{alertasExport.length} alertas encontradas</b>
-                <small>Incluye correos enviados y número de acciones</small>
+                {tipoExport === "alertas" ? (
+                  <>
+                    <b>{alertasExport.length} alertas encontradas</b>
+                    <small>Incluye correos enviados y número de acciones</small>
+                  </>
+                ) : (
+                  <>
+                    <b>
+                      {cargandoResumen
+                        ? "Contando registros..."
+                        : `${(tipoExport === "vibracion" ? resumenExport?.vibracion : resumenExport?.presion)?.toLocaleString("es-MX") ?? 0} registros encontrados`}
+                    </b>
+                    <small>
+                      {tipoExport === "vibracion"
+                        ? "Columnas: pinza, fecha_hora, rms_total, rms_b1, rms_b2, rms_b3, n_muestras, calidad"
+                        : "Columnas: pinza, fecha_hora, presion_kpa, calidad"}
+                    </small>
+                  </>
+                )}
               </span>
             </div>
-            <button className="primary-btn modal-primary" type="submit" disabled={alertasExport.length === 0}>
-              Generar archivo
+            <button
+              className="primary-btn modal-primary"
+              type="submit"
+              disabled={
+                ocupado ||
+                (tipoExport === "alertas"
+                  ? alertasExport.length === 0
+                  : cargandoResumen ||
+                    (tipoExport === "vibracion" ? (resumenExport?.vibracion ?? 0) : (resumenExport?.presion ?? 0)) === 0)
+              }
+            >
+              {ocupado ? "Generando CSV..." : "Descargar CSV"}
             </button>
           </form>
         )}
@@ -879,6 +979,16 @@ function Header({
         <p>{heading.subtitle}</p>
       </div>
       <div className="header__actions">
+        <button
+          className="secondary-btn header-export-btn"
+          type="button"
+          onClick={() => openDialog("export", { datasetExport: "vibracion" })}
+          title="Exportar mediciones de la base de datos (CSV)"
+          aria-label="Exportar CSV"
+        >
+          <Icon name="download" size={16} />
+          <span>Exportar CSV</span>
+        </button>
         <span className={`live-pill${conectado ? "" : " live-pill--offline"}`}>
           <i /> {conectado ? "En vivo" : "Sin conexión"}
         </span>
@@ -974,7 +1084,6 @@ function LiveChart() {
   const [period, setPeriod] = useState("30 min")
   const { alRecibirLectura, ahora } = useDatos()
   const [presion, setPresion] = useState<Punto[]>([])
-  const [temperatura, setTemperatura] = useState<Punto[]>([])
   const ventanaMs = PERIODOS[period]! * 60_000
 
   useEffect(() => {
@@ -982,15 +1091,14 @@ function LiveChart() {
     const hasta = new Date()
     const desde = new Date(hasta.getTime() - ventanaMs)
     const aPuntos = (filas: Lectura[]): Punto[] => filas.map((f) => ({ t: new Date(f.fecha_hora).getTime(), v: f.valor }))
-    void Promise.all([api.lecturas("presion", desde, hasta), api.lecturas("temperatura", desde, hasta)]).then(([p, t]) => {
+    void api.lecturas("presion", desde, hasta).then((p) => {
       if (!vigente) return
       setPresion(aPuntos(p))
-      setTemperatura(aPuntos(t))
     })
     const quitar = alRecibirLectura((lectura) => {
+      if (lectura.tipo !== "presion") return
       const punto = { t: new Date(lectura.fecha_hora).getTime(), v: lectura.valor }
-      if (lectura.tipo === "presion") setPresion((serie) => [...serie, punto])
-      if (lectura.tipo === "temperatura") setTemperatura((serie) => [...serie, punto])
+      setPresion((serie) => [...serie, punto])
     })
     return () => {
       vigente = false
@@ -1001,14 +1109,13 @@ function LiveChart() {
   const desde = ahora - ventanaMs
   const dentro = (serie: Punto[]) => reducir(serie.filter((p) => p.t >= desde))
   const trazoPresion = trazar(dentro(presion), desde, ahora)
-  const trazoTemperatura = trazar(dentro(temperatura), desde, ahora)
 
   return (
     <section className="panel chart-panel">
       <div className="panel__head">
         <div>
           <h2>Lecturas en tiempo real</h2>
-          <p>Pinza A · Últimos {period}</p>
+          <p>Transductor de presión (inicio de tubería) · Últimos {period}</p>
         </div>
         <div className="segmented">
           {Object.keys(PERIODOS).map((item) => (
@@ -1027,21 +1134,13 @@ function LiveChart() {
           <i className="pressure" />
           Presión
         </span>
-        <span>
-          <i className="temperature" />
-          Temperatura
-        </span>
-        <span>
-          <i className="flow" />
-          Caudal (sin sensor)
-        </span>
       </div>
       <div className="chart-wrap">
         <svg
           viewBox="0 0 740 240"
           preserveAspectRatio="none"
           role="img"
-          aria-label="Gráfica de presión y temperatura"
+          aria-label="Gráfica de presión en tiempo real"
         >
           {[30, 80, 130, 180, 230].map((y) => (
             <line
@@ -1055,7 +1154,6 @@ function LiveChart() {
           ))}
           {trazoPresion.area && <path className="chart-area" d={trazoPresion.area} />}
           {trazoPresion.linea && <path className="line pressure-line" d={trazoPresion.linea} />}
-          {trazoTemperatura.linea && <path className="line temp-line" d={trazoTemperatura.linea} />}
           {trazoPresion.ultimo && <circle cx={trazoPresion.ultimo.x} cy={trazoPresion.ultimo.y} r="5" className="point" />}
         </svg>
         <div className="chart-labels">
@@ -1271,8 +1369,14 @@ function medicionTarjeta(lectura: Lectura | null, formato: (valor: number) => st
   return { value: formato(lectura.valor), note: notaOk(lectura.valor) }
 }
 
+function medicionVibracion(v: Vibracion | undefined, posicion: string) {
+  if (!v) return { value: "—", note: "Sin lecturas" }
+  if (v.rms_total === null || v.calidad !== "ok") return { value: "—", note: TEXTO_CALIDAD[v.calidad] }
+  return { value: v.rms_total.toFixed(2), note: posicion }
+}
+
 function Overview({ setPage }: { setPage: (p: string) => void }) {
-  const { lecturas, dispositivos, alertas, umbrales } = useDatos()
+  const { lecturas, vibracion, dispositivos, alertas, umbrales } = useDatos()
   const principal = alertas.find((a) => a.estado === "activa")
   const umbralPresion = umbrales?.pinzas.find((p) => p.nombre === "A")?.umbral_presion_kpa ?? null
   const presion = medicionTarjeta(ultimaLectura(lecturas, "presion"), kpaABar, (valor) => {
@@ -1280,7 +1384,8 @@ function Overview({ setPage }: { setPage: (p: string) => void }) {
     const diferencia = Math.round((Math.abs(valor - umbralPresion) / umbralPresion) * 100)
     return `${diferencia}% ${valor < umbralPresion ? "por debajo" : "por encima"} del límite`
   })
-  const temperatura = medicionTarjeta(ultimaLectura(lecturas, "temperatura"), (valor) => valor.toFixed(1), () => "Lectura normal")
+  const piezoA = medicionVibracion(vibracion.find((v) => v.pinza === "A"), "Piezoeléctrico · Pinza A")
+  const piezoB = medicionVibracion(vibracion.find((v) => v.pinza === "B"), "Piezoeléctrico · Pinza B")
   const lista = dispositivos?.dispositivos ?? []
   return (
     <>
@@ -1310,19 +1415,19 @@ function Overview({ setPage }: { setPage: (p: string) => void }) {
           tone="blue"
         />
         <MetricCard
-          icon="temperature"
-          label="Temperatura"
-          value={temperatura.value}
-          unit="°C"
-          note={temperatura.note}
+          icon="activity"
+          label="Vibración · Pinza A"
+          value={piezoA.value}
+          unit="RMS"
+          note={piezoA.note}
           tone="purple"
         />
         <MetricCard
-          icon="flow"
-          label="Caudal"
-          value="—"
-          unit="L/min"
-          note="Sensor no instalado"
+          icon="activity"
+          label="Vibración · Pinza B"
+          value={piezoB.value}
+          unit="RMS"
+          note={piezoB.note}
           tone="cyan"
         />
         <MetricCard
@@ -1598,7 +1703,7 @@ function Devices() {
     })),
     ...pinzas.map((p) => {
       const vib = vibracion.find((v) => v.id_pinza === p.id_pinza)
-      const propias = lecturas.filter((l) => l.id_pinza === p.id_pinza)
+      const propias = lecturas.filter((l) => l.id_pinza === p.id_pinza && l.tipo !== "temperatura")
       const conFalla = [vib, ...propias].find((m) => m && m.calidad !== "ok")
       const conectada = adquisicion?.estado === "online"
       return {
@@ -1719,7 +1824,7 @@ function Alerts() {
             </button>
           ))}
         </div>
-        <button className="secondary-btn" onClick={() => openDialog("export")}>
+        <button className="secondary-btn" onClick={() => openDialog("export", { datasetExport: "alertas" })}>
           <Icon name="download" />
           Exportar
         </button>
@@ -1756,7 +1861,7 @@ function Alerts() {
   )
 }
 
-function Thresholds() {
+function Thresholds({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) {
   const [saved, setSaved] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const { notify } = useInteractions()
@@ -1768,6 +1873,33 @@ function Thresholds() {
     if (!umbrales) return
     setValores(Object.fromEntries(umbrales.pinzas.map((p) => [p.id_pinza, { umbral_confianza: p.umbral_confianza, umbral_presion_kpa: p.umbral_presion_kpa }])))
   }, [umbrales])
+
+  const hayCambios = Boolean(
+    umbrales?.pinzas.some((p) => {
+      const actual = valores[p.id_pinza]
+      if (!actual) return false
+      return (
+        Math.abs(actual.umbral_confianza - p.umbral_confianza) > 0.001 ||
+        Math.abs(actual.umbral_presion_kpa - p.umbral_presion_kpa) > 0.001
+      )
+    }),
+  )
+
+  useEffect(() => {
+    onDirtyChange?.(hayCambios)
+  }, [hayCambios, onDirtyChange])
+
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+
+  useEffect(() => {
+    if (!hayCambios) return
+    const alSalir = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", alSalir)
+    return () => window.removeEventListener("beforeunload", alSalir)
+  }, [hayCambios])
 
   const cambiar = (id: number, campo: "umbral_confianza" | "umbral_presion_kpa", valor: number) =>
     setValores((previos) => ({ ...previos, [id]: { ...previos[id]!, [campo]: valor } }))
@@ -1958,7 +2090,13 @@ function Depuracion() {
         ...Object.entries(estadoApi?.dispositivos ?? {}).map(([clave, valor]) => [clave, valor]),
         ...Object.entries(estadoApi?.ultimo_mensaje ?? {}).map(([topico, fecha]) => [topico, haceCuanto(fecha, ahora)]),
       ])}
-      {tabla("Últimas lecturas crudas y calidad", ["pinza", "tipo", "valor", "calidad", "fecha_hora"], lecturas.map((l) => [l.pinza, l.tipo, l.valor, l.calidad, l.fecha_hora]))}
+      {tabla(
+        "Últimas lecturas crudas y calidad",
+        ["pinza", "tipo", "valor", "calidad", "fecha_hora"],
+        lecturas
+          .filter((l) => l.tipo !== "temperatura")
+          .map((l) => [l.pinza, l.tipo, l.valor, l.calidad, l.fecha_hora]),
+      )}
       {tabla("Vibración por banda (RMS)", ["pinza", "rms_total", "b1 300-700", "b2 700-1200", "b3 1200-2000", "n", "calidad", "fecha_hora"], vibracion.map((v) => [v.pinza, v.rms_total, v.rms_b1, v.rms_b2, v.rms_b3, v.n_muestras, v.calidad, v.fecha_hora]))}
       {tabla("Dispositivos", ["id", "nombre", "clave", "estado", "ultima_conexion"], (dispositivos?.dispositivos ?? []).map((d) => [conCeros(d.id_dispositivo), d.nombre, d.clave, d.estado, d.ultima_conexion]))}
       {tabla("Eventos Socket.IO recientes", ["hora", "evento", "datos"], eventos.slice(0, 15).map((e) => [horaLocal(e.recibido), e.evento, JSON.stringify(e.datos)]))}
@@ -2215,21 +2353,44 @@ function Tablero({ onLogout }: { onLogout: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [toast, setToast] = useState("")
+  const [umbralesSinGuardar, setUmbralesSinGuardar] = useState(false)
+  const [salidaPendiente, setSalidaPendiente] = useState<(() => void) | null>(null)
   const notify = (message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(""), 2600)
   }
   const openDialog = (kind: DialogKind, datos?: Omit<DialogState, "kind">) => setDialog({ kind, ...datos })
+  const cambiarPagina = (destino: string) => {
+    if (destino === page) return
+    if (page === "thresholds" && umbralesSinGuardar) {
+      setSalidaPendiente(() => () => {
+        setUmbralesSinGuardar(false)
+        setPage(destino)
+      })
+      return
+    }
+    setPage(destino)
+  }
+  const cerrarSesionConConfirmacion = () => {
+    if (page === "thresholds" && umbralesSinGuardar) {
+      setSalidaPendiente(() => () => {
+        setUmbralesSinGuardar(false)
+        onLogout()
+      })
+      return
+    }
+    onLogout()
+  }
   return (
     <InteractionContext.Provider value={{ openDialog, notify }}>
       <div className="app-shell">
         <Sidebar
           page={page}
-          setPage={setPage}
+          setPage={cambiarPagina}
           open={menuOpen}
           onClose={() => setMenuOpen(false)}
           role={role}
-          onLogout={onLogout}
+          onLogout={cerrarSesionConConfirmacion}
         />
         <main className="main">
           <Header
@@ -2240,19 +2401,51 @@ function Tablero({ onLogout }: { onLogout: () => void }) {
           <div className="page-content">
             {page === "overview" &&
               (role === "manager" ? (
-                <Overview setPage={setPage} />
+                <Overview setPage={cambiarPagina} />
               ) : (
-                <MaintenanceOverview setPage={setPage} />
+                <MaintenanceOverview setPage={cambiarPagina} />
               ))}
             {page === "devices" && <Devices />}
             {page === "alerts" && <Alerts />}
-            {page === "thresholds" && role === "manager" && <Thresholds />}
+            {page === "thresholds" && role === "manager" && <Thresholds onDirtyChange={setUmbralesSinGuardar} />}
             {page === "users" && role === "manager" && <Users />}
             {page === "debug" && <Depuracion />}
           </div>
         </main>
-        <BottomNav page={page} setPage={setPage} role={role} />
+        <BottomNav page={page} setPage={cambiarPagina} role={role} />
         {dialog && <Dialog estado={dialog} onClose={() => setDialog(null)} />}
+        {salidaPendiente && (
+          <div className="modal-layer" role="dialog" aria-modal="true" aria-labelledby="unsaved-thresholds-title">
+            <button className="modal-scrim" aria-label="Cerrar" onClick={() => setSalidaPendiente(null)} />
+            <div className="modal">
+              <div className="modal__head">
+                <div>
+                  <h2 id="unsaved-thresholds-title">Cambios sin guardar</h2>
+                  <p>¿Seguro de que quieres avanzar sin guardar los cambios en los umbrales?</p>
+                </div>
+                <button className="icon-btn" onClick={() => setSalidaPendiente(null)} aria-label="Cerrar">
+                  <Icon name="close" />
+                </button>
+              </div>
+              <div className="modal-form" style={{ marginTop: 14 }}>
+                <button className="secondary-btn modal-primary" type="button" onClick={() => setSalidaPendiente(null)}>
+                  Quedarme aquí
+                </button>
+                <button
+                  className="primary-btn modal-primary"
+                  type="button"
+                  onClick={() => {
+                    const continuar = salidaPendiente
+                    setSalidaPendiente(null)
+                    continuar()
+                  }}
+                >
+                  Avanzar sin guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {toast && (
           <div className="toast" role="status">
             <span>

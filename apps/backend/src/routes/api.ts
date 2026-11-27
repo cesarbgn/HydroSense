@@ -108,6 +108,114 @@ api.get('/vibracion/ultimas', async (req, res) => {
   res.json(resultado.map(conFechaIso))
 })
 
+// ---------- Exportación de mediciones (CSV para análisis / entrenamiento IA) ----------
+const celdaCsv = (valor: unknown) => {
+  if (valor === null || valor === undefined) return ''
+  const texto = String(valor)
+  return /[",\n\r]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto
+}
+
+api.get('/exportar/resumen', async (req, res) => {
+  const filtro = z
+    .object({
+      desde: fechaConsulta.optional(),
+      hasta: fechaConsulta.optional(),
+    })
+    .parse(req.query)
+  const desde = filtro.desde ?? null
+  const hasta = filtro.hasta ?? null
+  const [vib] = await consultar<{ total: number }>(
+    `SELECT COUNT(*) AS total FROM lectura_vibracion
+      WHERE (? IS NULL OR fecha_hora >= ?) AND (? IS NULL OR fecha_hora <= ?)`,
+    [desde, desde, hasta, hasta],
+  )
+  const [pres] = await consultar<{ total: number }>(
+    `SELECT COUNT(*) AS total FROM lectura
+      WHERE tipo = 'presion' AND (? IS NULL OR fecha_hora >= ?) AND (? IS NULL OR fecha_hora <= ?)`,
+    [desde, desde, hasta, hasta],
+  )
+  res.json({ vibracion: Number(vib?.total ?? 0), presion: Number(pres?.total ?? 0) })
+})
+
+api.get('/exportar/csv', async (req, res) => {
+  const filtro = z
+    .object({
+      dataset: z.enum(['vibracion', 'presion']),
+      desde: fechaConsulta.optional(),
+      hasta: fechaConsulta.optional(),
+      etiqueta: z.enum(['0', '1']).optional(),
+    })
+    .parse(req.query)
+  const desde = filtro.desde ?? null
+  const hasta = filtro.hasta ?? null
+  const sufijoEtiqueta = filtro.etiqueta === '0' ? '-normal' : filtro.etiqueta === '1' ? '-fuga' : ''
+
+  if (filtro.dataset === 'vibracion') {
+    const filas = await consultar<{
+      pinza: string
+      fecha_hora: string
+      rms_total: number | null
+      rms_b1: number | null
+      rms_b2: number | null
+      rms_b3: number | null
+      n_muestras: number
+      calidad: string
+    }>(
+      `SELECT p.nombre AS pinza, v.fecha_hora, v.rms_total, v.rms_b1, v.rms_b2, v.rms_b3, v.n_muestras, v.calidad
+         FROM lectura_vibracion v JOIN pinza p ON p.id_pinza = v.id_pinza
+        WHERE (? IS NULL OR v.fecha_hora >= ?) AND (? IS NULL OR v.fecha_hora <= ?)
+        ORDER BY v.fecha_hora ASC LIMIT 250000`,
+      [desde, desde, hasta, hasta],
+    )
+    const encabezados = ['pinza', 'fecha_hora', 'rms_total', 'rms_b1', 'rms_b2', 'rms_b3', 'n_muestras', 'calidad', ...(filtro.etiqueta ? ['etiqueta'] : [])]
+    const lineas = [
+      encabezados.join(','),
+      ...filas.map((f) =>
+        [
+          f.pinza,
+          datetimeAIso(f.fecha_hora),
+          f.rms_total,
+          f.rms_b1,
+          f.rms_b2,
+          f.rms_b3,
+          f.n_muestras,
+          f.calidad,
+          ...(filtro.etiqueta ? [filtro.etiqueta] : []),
+        ]
+          .map(celdaCsv)
+          .join(','),
+      ),
+    ]
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="vibracion-hydrosense${sufijoEtiqueta}.csv"`)
+    res.send(lineas.join('\n'))
+    return
+  }
+
+  const filas = await consultar<{
+    pinza: string
+    fecha_hora: string
+    valor: number | null
+    calidad: string
+  }>(
+    `SELECT p.nombre AS pinza, l.fecha_hora, l.valor, l.calidad
+       FROM lectura l JOIN pinza p ON p.id_pinza = l.id_pinza
+      WHERE l.tipo = 'presion' AND (? IS NULL OR l.fecha_hora >= ?) AND (? IS NULL OR l.fecha_hora <= ?)
+      ORDER BY l.fecha_hora ASC LIMIT 250000`,
+    [desde, desde, hasta, hasta],
+  )
+  const encabezados = ['pinza', 'fecha_hora', 'presion_kpa', 'calidad', ...(filtro.etiqueta ? ['etiqueta'] : [])]
+  const lineas = [
+    encabezados.join(','),
+    ...filas.map((f) =>
+      [f.pinza, datetimeAIso(f.fecha_hora), f.valor, f.calidad, ...(filtro.etiqueta ? [filtro.etiqueta] : [])].map(celdaCsv).join(','),
+    ),
+  ]
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  res.setHeader('Content-Disposition', `attachment; filename="presion-hydrosense${sufijoEtiqueta}.csv"`)
+  res.send(lineas.join('\n'))
+})
+
 // ---------- Dispositivos y estado ----------
 api.get('/dispositivos', async (_req, res) => {
   const dispositivos = await consultar<{ tipo: keyof typeof CLAVE_POR_TIPO; ultima_conexion: string | null }>(
